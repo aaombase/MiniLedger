@@ -59,6 +59,7 @@ export function createHttpApi(baseUrl: string): ApiClient {
       form.append("file", new FsFile(image.uri) as unknown as Blob, image.name);
       return call<Loan>("PUT", `/v1/loans/${encodeURIComponent(id)}/receipt`, form, true);
     },
+    removeReceipt: (id) => call("DELETE", `/v1/loans/${encodeURIComponent(id)}/receipt`),
     receiptSource: (id) => ({
       uri: `${baseUrl}/v1/loans/${encodeURIComponent(id)}/receipt`,
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,

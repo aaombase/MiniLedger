@@ -243,3 +243,34 @@ describe('GET /v1/loans/:id/receipt', () => {
     expect((await readFile(path.join(ctx.uploadDir, file!))).equals(PNG)).toBe(true);
   });
 });
+
+describe('DELETE /v1/loans/:id/receipt', () => {
+  const remove = (user: LoggedInUser | null, id: string) =>
+    ctx.app.inject({ method: 'DELETE', url: `/v1/loans/${id}/receipt`, headers: user?.headers });
+
+  it('removes the receipt and its file', async () => {
+    await upload(alice, loanId, { data: JPEG });
+    const res = await remove(alice, loanId);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: loanId, hasReceipt: false });
+    expect(await readdir(ctx.uploadDir)).toHaveLength(0);
+    const get = await ctx.app.inject({ method: 'GET', url: `/v1/loans/${loanId}/receipt`, headers: alice.headers });
+    expect(get.statusCode).toBe(404);
+  });
+
+  it('returns 404 when the loan has no receipt', async () => {
+    const res = await remove(alice, loanId);
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe('RECEIPT_NOT_FOUND');
+  });
+
+  it("cannot remove another user's receipt", async () => {
+    await upload(alice, loanId, { data: JPEG });
+    expect((await remove(bob, loanId)).statusCode).toBe(404);
+    expect(await readdir(ctx.uploadDir)).toHaveLength(1);
+  });
+
+  it('requires authentication', async () => {
+    expect((await remove(null, loanId)).statusCode).toBe(401);
+  });
+});

@@ -71,7 +71,20 @@ export function createReceiptsService({ db, clock, storage, loans: loansService 
     return { data, mime: loan.receiptMime };
   }
 
-  return { assertOwned, attach, read };
+  async function detach(user: AuthUser, loanId: string): Promise<Loan> {
+    const loan = await findOwnedLoan(db, user.id, loanId);
+    if (!loan) throw errors.loanNotFound();
+    if (!loan.receiptKey) throw receiptNotFound();
+    await db
+      .update(loans)
+      .set({ receiptKey: null, receiptMime: null, receiptBytes: null, updatedAt: clock.now() })
+      .where(and(eq(loans.id, loan.id), eq(loans.userId, user.id)));
+    // The row no longer points at the file, so a failed delete only leaves a harmless orphan.
+    await storage.remove(loan.receiptKey).catch(() => {});
+    return loansService.get(user, loan.id);
+  }
+
+  return { assertOwned, attach, read, detach };
 }
 
 const receiptNotFound = () => new AppError(404, 'RECEIPT_NOT_FOUND', 'This loan has no receipt.');

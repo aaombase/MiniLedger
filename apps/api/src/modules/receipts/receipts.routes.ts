@@ -28,6 +28,10 @@ export function registerReceiptRoutes(
       return receipts.attach(request.user, request.params.id, data);
     });
 
+    scope.delete<{ Params: IdParams }>('/v1/loans/:id/receipt', async (request) =>
+      receipts.detach(request.user, request.params.id),
+    );
+
     scope.get<{ Params: IdParams }>('/v1/loans/:id/receipt', async (request, reply) => {
       const { data, mime } = await receipts.read(request.user, request.params.id);
       return reply

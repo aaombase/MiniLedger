@@ -70,6 +70,16 @@ export function useUploadReceipt() {
     onSuccess: (_l, v) => invalidateLedger(qc, v.id),
   });
 }
+export function useRemoveReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api().removeReceipt(id),
+    onSuccess: (_l, id) => {
+      qc.removeQueries({ queryKey: ["receipt", id] });
+      invalidateLedger(qc, id);
+    },
+  });
+}
 export const useLogout = () => useMutation({ mutationFn: () => api().logout() });
 
 /**

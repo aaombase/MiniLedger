@@ -4,7 +4,7 @@ import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, fonts, layout, radii, spacing, typography } from "@/theme/tokens";
-import { useDeleteLoan, useLoan, useReceiptUri, useRepayLoan, useUploadReceipt } from "@/api/queries";
+import { useDeleteLoan, useLoan, useReceiptUri, useRemoveReceipt, useRepayLoan, useUploadReceipt } from "@/api/queries";
 import { isApiError } from "@/api/ApiError";
 import { pickImage, type PickSource } from "@/platform/imagePicker";
 import { haptics } from "@/platform/haptics";
@@ -32,6 +32,8 @@ export function LoanDetailScreen() {
   const repay = useRepayLoan();
   const upload = useUploadReceipt();
   const del = useDeleteLoan();
+  const removeReceipt = useRemoveReceipt();
+  const [confirmRemovePhoto, setConfirmRemovePhoto] = useState(false);
   const receiptQ = useReceiptUri(id, !!loanQ.data?.hasReceipt);
   const [confirmSettle, setConfirmSettle] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -189,7 +191,19 @@ export function LoanDetailScreen() {
           )}
         </View>
 
-        <SectionTitle title="Receipt" action={loan.hasReceipt && !upload.isPending ? "Replace" : undefined} onAction={() => setPickerOpen(true)} />
+        <View style={styles.receiptHead}>
+          <SectionTitle title="Receipt" />
+          {loan.hasReceipt && !upload.isPending ? (
+            <View style={styles.receiptActions}>
+              <Pressable onPress={() => setPickerOpen(true)} hitSlop={8} accessibilityLabel="Replace receipt">
+                <Text style={styles.linkText}>Replace</Text>
+              </Pressable>
+              <Pressable onPress={() => setConfirmRemovePhoto(true)} hitSlop={8} accessibilityLabel="Remove receipt">
+                <Text style={[styles.linkText, { color: colors.danger }]}>Remove</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
         <View style={styles.receiptBody}>
           {upload.isPending ? (
             <View style={styles.uploading}>
@@ -247,6 +261,25 @@ export function LoanDetailScreen() {
         actions={[
           { title: "Delete", variant: "danger", loading: del.isPending, onPress: () => void remove() },
           { title: "Keep it", variant: "secondary", onPress: () => setConfirmDelete(false) },
+        ]}
+      />
+      <ConfirmSheet
+        visible={confirmRemovePhoto}
+        title="Remove this receipt?"
+        body="The photo is deleted. You can attach a new one any time."
+        onClose={() => { if (!removeReceipt.isPending) setConfirmRemovePhoto(false); }}
+        actions={[
+          {
+            title: "Remove photo",
+            variant: "danger",
+            loading: removeReceipt.isPending,
+            onPress: () =>
+              void removeReceipt.mutateAsync(loan.id).then(
+                () => { setConfirmRemovePhoto(false); setUploadError(null); toast.show({ message: "Receipt removed", tone: "info" }); },
+                () => { setConfirmRemovePhoto(false); toast.show({ message: "Couldn't remove the receipt. Try again.", tone: "error" }); },
+              ),
+          },
+          { title: "Keep it", variant: "secondary", onPress: () => setConfirmRemovePhoto(false) },
         ]}
       />
       <ConfirmSheet
@@ -319,6 +352,9 @@ const styles = StyleSheet.create({
   paymentBody: { flex: 1, paddingBottom: spacing.md, gap: 1 },
   paymentAmount: { fontFamily: fonts.display, fontSize: 17, color: colors.primary },
   receiptBody: { gap: spacing.md },
+  receiptHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+  receiptActions: { flexDirection: "row", gap: spacing.lg, paddingBottom: 4 },
+  linkText: { ...typography.label, fontFamily: fonts.bodyBold, color: colors.primary },
   thumbWrap: { borderRadius: radii.lg, overflow: "hidden" },
   thumb: { width: "100%", height: 180, borderRadius: radii.lg },
   dropzone: { height: 120, borderRadius: radii.lg, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center", gap: spacing.xs, backgroundColor: colors.surface },

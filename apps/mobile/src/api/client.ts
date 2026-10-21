@@ -21,6 +21,7 @@ export interface ApiClient {
   getActivity(limit: number): Promise<{ items: ActivityItem[] }>;
   getSummary(): Promise<Summary>;
   uploadReceipt(id: string, image: PickedImage): Promise<Loan>;
+  removeReceipt(id: string): Promise<LoanDetail>;
   receiptSource(id: string): ImageSourceSpec;
 }
 
