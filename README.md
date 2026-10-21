@@ -88,7 +88,7 @@ All routes except auth and `/health` need `Authorization: Bearer <token>`. Error
 | DELETE | `/v1/loans/:id` | Delete loan, its payments and receipt |
 | POST | `/v1/loans/:id/payments` | `{ amountMinor, paidOn?, note? }`: partial payment |
 | POST | `/v1/loans/:id/repay` | Settle whatever is still owed |
-| PUT / GET | `/v1/loans/:id/receipt` | Upload (multipart, ≤5 MB, JPEG/PNG/WebP) / fetch receipt |
+| PUT / GET / DELETE | `/v1/loans/:id/receipt` | Upload (multipart, ≤5 MB, JPEG/PNG/WebP) / fetch / remove receipt |
 | GET | `/v1/summary` | Lent, repaid, outstanding, overdue + counts |
 | GET | `/v1/activity?limit=` | Loans and payments, newest first |
 
@@ -110,7 +110,7 @@ npm test          # shared rules + API integration tests against a real Postgres
 npm run typecheck
 ```
 
-245 tests: 102 for shared money/date/phone/validation rules and 143 API integration tests (auth, loans, partial payments, concurrency, summary, receipts, seed). API tests need a `miniledger_test` database (see `apps/api/src/test/env.ts`).
+249 tests: 102 for shared money/date/phone/validation rules and 147 API integration tests (auth, loans, partial payments, concurrency, summary, receipts, seed). API tests need a `miniledger_test` database (see `apps/api/src/test/env.ts`).
 
 ## Known limitations
 
