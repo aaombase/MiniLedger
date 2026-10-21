@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { File, Paths } from "expo-file-system";
 import { getApiClient } from "./client";
 import type { CreateLoanInput, LoanFilter, PickedImage, RecordPaymentInput, UpdateLoanInput } from "@/shared/types";
 
@@ -15,7 +16,10 @@ function invalidateLedger(qc: QueryClient, id?: string) {
   void qc.invalidateQueries({ queryKey: ["summary"] });
   void qc.invalidateQueries({ queryKey: ["loans"] });
   void qc.invalidateQueries({ queryKey: ["activity"] });
-  if (id) void qc.invalidateQueries({ queryKey: ["loan", id] });
+  if (id) {
+    void qc.invalidateQueries({ queryKey: ["loan", id] });
+    void qc.invalidateQueries({ queryKey: ["receipt", id] });
+  }
 }
 
 export const useSummary = () => useQuery({ queryKey: qk.summary, queryFn: () => api().getSummary() });
@@ -67,3 +71,21 @@ export function useUploadReceipt() {
   });
 }
 export const useLogout = () => useMutation({ mutationFn: () => api().logout() });
+
+/**
+ * React Native's <Image> doesn't reliably send auth headers on Android, so the receipt is downloaded with the
+ * session token into the cache and shown from there.
+ */
+export function useReceiptUri(id: string, hasReceipt: boolean) {
+  return useQuery({
+    queryKey: ["receipt", id],
+    enabled: hasReceipt,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { uri, headers } = api().receiptSource(id);
+      const dest = new File(Paths.cache, `receipt-${id}-${Date.now()}.img`);
+      const file = await File.downloadFileAsync(uri, dest, { headers, idempotent: true });
+      return file.uri;
+    },
+  });
+}

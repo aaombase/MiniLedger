@@ -4,8 +4,7 @@ import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, fonts, layout, radii, spacing, typography } from "@/theme/tokens";
-import { useDeleteLoan, useLoan, useRepayLoan, useUploadReceipt } from "@/api/queries";
-import { getApiClient } from "@/api/client";
+import { useDeleteLoan, useLoan, useReceiptUri, useRepayLoan, useUploadReceipt } from "@/api/queries";
 import { isApiError } from "@/api/ApiError";
 import { pickImage, type PickSource } from "@/platform/imagePicker";
 import { haptics } from "@/platform/haptics";
@@ -33,6 +32,7 @@ export function LoanDetailScreen() {
   const repay = useRepayLoan();
   const upload = useUploadReceipt();
   const del = useDeleteLoan();
+  const receiptQ = useReceiptUri(id, !!loanQ.data?.hasReceipt);
   const [confirmSettle, setConfirmSettle] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -125,7 +125,7 @@ export function LoanDetailScreen() {
     try { await sendReminder([loan!]); } catch { toast.show({ message: "Couldn't open the share sheet", tone: "error" }); }
   }
 
-  const receipt = getApiClient().receiptSource(loan.id);
+  const receipt = receiptQ.data ? { uri: receiptQ.data } : null;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -196,7 +196,15 @@ export function LoanDetailScreen() {
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.caption}>Uploading…</Text>
             </View>
-          ) : loan.hasReceipt ? (
+          ) : loan.hasReceipt && !receipt ? (
+            <View style={styles.uploading}>
+              {receiptQ.isError ? (
+                <Text style={styles.caption} onPress={() => void receiptQ.refetch()}>Couldn't load the photo. Tap to retry.</Text>
+              ) : (
+                <ActivityIndicator size="small" color={colors.primary} />
+              )}
+            </View>
+          ) : loan.hasReceipt && receipt ? (
             <Pressable onPress={() => setViewer(true)} accessibilityLabel="View receipt" style={styles.thumbWrap}>
               <Image source={receipt} style={styles.thumb} resizeMode="cover" accessibilityLabel="Receipt photo" />
             </Pressable>
@@ -253,7 +261,7 @@ export function LoanDetailScreen() {
       />
       <Modal visible={viewer} animationType="fade" onRequestClose={() => setViewer(false)}>
         <View style={styles.viewer}>
-          <Image source={receipt} style={styles.viewerImg} resizeMode="contain" accessibilityLabel="Receipt photo" />
+          {receipt ? <Image source={receipt} style={styles.viewerImg} resizeMode="contain" accessibilityLabel="Receipt photo" /> : null}
           <View style={styles.viewerClose}>
             <IconButton icon={X} onPress={() => setViewer(false)} accessibilityLabel="Close receipt" color={colors.onPrimary} />
           </View>
