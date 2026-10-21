@@ -1,0 +1,21 @@
+# Optional: Postgres for people who do not have a local install.
+# Creates the dev database; the test database is created by `npm run db:setup-test`.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: miniledger
+      POSTGRES_PASSWORD: miniledger_dev
+      POSTGRES_DB: miniledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - miniledger-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniledger -d miniledger"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  miniledger-pgdata:
