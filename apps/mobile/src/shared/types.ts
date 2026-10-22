@@ -20,7 +20,7 @@ export interface Loan {
   lastPaymentOn: string | null;
 }
 
-export interface Payment { id: string; amountMinor: number; paidOn: string; note: string | null; createdAt: string }
+export interface Payment { id: string; amountMinor: number; paidOn: string; note: string | null; hasReceipt: boolean; createdAt: string }
 export interface LoanDetail extends Loan { payments: Payment[] }
 
 export interface RecordPaymentInput { amountMinor: number; paidOn?: string; note?: string | null }

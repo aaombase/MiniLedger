@@ -10,6 +10,7 @@ import { IconButton } from "@/components/IconButton";
 import { TextField } from "@/components/TextField";
 import { AmountField } from "@/components/AmountField";
 import { Chip } from "@/components/Chip";
+import { PhotoField } from "@/components/PhotoField";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
@@ -17,10 +18,11 @@ import { FieldMessage } from "@/components/FieldMessage";
 import { useToast } from "@/components/ToastProvider";
 import { DatePickerField } from "@/platform/DatePickerField";
 import { haptics } from "@/platform/haptics";
-import { useCreateLoan, useSummary } from "@/api/queries";
+import { useCreateLoan, useSummary, useUploadReceipt } from "@/api/queries";
 import { isApiError } from "@/api/ApiError";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { createLoanFormSchema, type CreateLoanFormValues } from "@/shared/schemas";
+import type { PickedImage } from "@/shared/types";
 import { parseRupeesToPaise, formatINR } from "@/shared/money";
 import { addDays, addMonths, daysBetween, formatRelativeDays, formatWeekdayDate } from "@/shared/dates";
 
@@ -32,6 +34,8 @@ export function AddLoanScreen() {
   const toast = useToast();
   const summary = useSummary();
   const create = useCreateLoan();
+  const uploadReceipt = useUploadReceipt();
+  const [receipt, setReceipt] = useState<PickedImage | null>(null);
   // "today" comes from the server's asOf; until it arrives quick chips are disabled.
   const today = summary.data?.asOf ?? null;
   const schema = useMemo(() => createLoanFormSchema(today ?? "2000-01-01"), [today]);
@@ -56,7 +60,7 @@ export function AddLoanScreen() {
     setValue("dueDate", d, { shouldValidate: true, shouldTouch: true, shouldDirty: true });
   };
 
-  const close = () => (formState.isDirty ? setConfirmDiscard(true) : router.back());
+  const close = () => (formState.isDirty || receipt ? setConfirmDiscard(true) : router.back());
 
   const onSave = handleSubmit(async (v) => {
     if (create.isPending) return;
@@ -66,8 +70,14 @@ export function AddLoanScreen() {
     try {
       const loan = await create.mutateAsync({ friendName: v.friendName.trim(), amountMinor, dueDate: v.dueDate, note: v.note.trim() || null });
       haptics.success();
+      // The loan is already saved; a failed photo must not look like a failed loan.
+      let receiptFailed = false;
+      if (receipt) {
+        try { await uploadReceipt.mutateAsync({ id: loan.id, image: receipt }); } catch { receiptFailed = true; }
+      }
       router.back();
-      toast.show({ message: `Added ${formatINR(loan.amountMinor)} for ${loan.friendName.split(" ")[0]}`, tone: "success" });
+      const done = `Added ${formatINR(loan.amountMinor)} for ${loan.friendName.split(" ")[0]}`;
+      toast.show({ message: receiptFailed ? `${done}. The photo couldn't be saved: add it from the loan.` : done, tone: receiptFailed ? "info" : "success" });
     } catch (e) {
       if (isApiError(e) && e.code === "VALIDATION_ERROR" && e.details) {
         const map: Record<string, keyof CreateLoanFormValues> = { friendName: "friendName", amountMinor: "amount", dueDate: "dueDate", note: "note" };
@@ -153,12 +163,14 @@ export function AddLoanScreen() {
               />
             )}
           />
+
+          <PhotoField label="Receipt (optional)" hint="Attach the bill or UPI screenshot of the money you sent" value={receipt} onChange={setReceipt} />
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.bottom}>
         {formError ? <Banner tone="danger" message={formError} /> : null}
-        <Button title="Save loan" onPress={() => void onSave()} disabled={!valid || !today} loading={create.isPending} fullWidth />
+        <Button title="Save loan" onPress={() => void onSave()} disabled={!valid || !today} loading={create.isPending || uploadReceipt.isPending} fullWidth />
       </View>
 
       <ConfirmSheet

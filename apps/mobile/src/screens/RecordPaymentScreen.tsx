@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, fonts, layout, radii, spacing, typography } from "@/theme/tokens";
-import { useLoan, useRecordPayment } from "@/api/queries";
+import { useLoan, useRecordPayment, useUploadPaymentReceipt } from "@/api/queries";
 import { isApiError } from "@/api/ApiError";
 import { haptics } from "@/platform/haptics";
 import { DatePickerField } from "@/platform/DatePickerField";
@@ -13,11 +13,13 @@ import { IconButton } from "@/components/IconButton";
 import { AmountField } from "@/components/AmountField";
 import { TextField } from "@/components/TextField";
 import { Chip } from "@/components/Chip";
+import { PhotoField } from "@/components/PhotoField";
 import { Button } from "@/components/Button";
 import { Banner } from "@/components/Banner";
 import { Avatar } from "@/components/Avatar";
 import { ProgressBar } from "@/components/ProgressBar";
 import { useToast } from "@/components/ToastProvider";
+import type { PickedImage } from "@/shared/types";
 import { formatINR, hasTooManyDecimals, MIN_PAISE, parseRupeesToPaise } from "@/shared/money";
 import { addDays, formatWeekdayDate } from "@/shared/dates";
 
@@ -31,6 +33,8 @@ export function RecordPaymentScreen() {
   const toast = useToast();
   const loanQ = useLoan(id);
   const record = useRecordPayment();
+  const uploadProof = useUploadPaymentReceipt();
+  const [proof, setProof] = useState<PickedImage | null>(null);
   const [amount, setAmount] = useState("");
   const [touched, setTouched] = useState(false);
   const [when, setWhen] = useState<When>("today");
@@ -73,11 +77,15 @@ export function RecordPaymentScreen() {
     try {
       const updated = await record.mutateAsync({ id: loan!.id, input: { amountMinor: paise, paidOn, note: note.trim() || null } });
       haptics.success();
+      // The payment is already saved; a failed photo must not look like a failed payment.
+      let proofFailed = false;
+      const newest = updated.payments[0];
+      if (proof && newest) {
+        try { await uploadProof.mutateAsync({ loanId: loan!.id, paymentId: newest.id, image: proof }); } catch { proofFailed = true; }
+      }
       router.back();
-      toast.show({
-        message: updated.status === "repaid" ? `${loan!.friendName.split(" ")[0]} is all settled 🎉` : `${formatINR(paise)} recorded · ${formatINR(updated.remainingMinor)} left`,
-        tone: "success",
-      });
+      const done = updated.status === "repaid" ? `${loan!.friendName.split(" ")[0]} is all settled 🎉` : `${formatINR(paise)} recorded · ${formatINR(updated.remainingMinor)} left`;
+      toast.show({ message: proofFailed ? `${done}. The photo couldn't be saved: add it from the loan.` : done, tone: proofFailed ? "info" : "success" });
     } catch (e) {
       if (isApiError(e) && e.code === "AMOUNT_EXCEEDS_BALANCE") setFormError(`That's more than what's owed (${formatINR(Number(e.details?.remainingMinor ?? remaining))}).`);
       else if (isApiError(e) && e.code === "LOAN_ALREADY_REPAID") setFormError("This loan is already settled.");
@@ -141,6 +149,8 @@ export function RecordPaymentScreen() {
             placeholder="e.g. GPay, cash"
             maxLength={200}
           />
+
+          <PhotoField label="Proof of payment (optional)" hint="Add a UPI screenshot or photo" value={proof} onChange={setProof} />
         </ScrollView>
       </KeyboardAvoidingView>
       <View style={styles.bottom}>
@@ -149,7 +159,7 @@ export function RecordPaymentScreen() {
           title={settles ? "Record & settle" : paise && !amountError ? `Record ${formatINR(paise)}` : "Record payment"}
           onPress={() => void save()}
           disabled={!!amountError || !paidOn}
-          loading={record.isPending}
+          loading={record.isPending || uploadProof.isPending}
           fullWidth
         />
       </View>

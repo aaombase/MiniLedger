@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { SectionTitle } from "@/components/SectionTitle";
+import { PaymentProof } from "@/components/PaymentProof";
 import { useToast } from "@/components/ToastProvider";
 import { sendReminder } from "@/lib/remind";
 import { formatINR } from "@/shared/money";
@@ -186,6 +187,7 @@ export function LoanDetailScreen() {
                   <Text style={[styles.paymentAmount, typography.money]}>+{formatINR(p.amountMinor)}</Text>
                   <Text style={styles.caption}>{formatShortDate(p.paidOn)}{p.note ? ` · ${p.note}` : ""}{i === 0 && repaid ? " · settled" : ""}</Text>
                 </View>
+                <PaymentProof loanId={loan.id} payment={p} />
               </View>
             ))
           )}
@@ -225,7 +227,7 @@ export function LoanDetailScreen() {
           ) : (
             <Pressable onPress={() => setPickerOpen(true)} accessibilityLabel="Add a receipt photo" style={({ pressed }) => [styles.dropzone, pressed ? { backgroundColor: colors.surfaceMuted } : null]}>
               <Camera size={24} color={colors.inkMuted} />
-              <Text style={styles.dropTitle}>Attach a bill or UPI screenshot</Text>
+              <Text style={styles.dropTitle}>Attach the bill or UPI screenshot of the money you sent</Text>
               <Text style={styles.caption}>JPG, PNG or WebP · up to 5 MB</Text>
             </Pressable>
           )}
@@ -345,7 +347,7 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, minHeight: 72, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 4 },
   actionPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
   actionText: { ...typography.caption, fontFamily: fonts.bodyBold, color: colors.primary },
-  payment: { flexDirection: "row", gap: spacing.md },
+  payment: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
   rail: { width: 14, alignItems: "center" },
   dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary, marginTop: 5 },
   line: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 2 },

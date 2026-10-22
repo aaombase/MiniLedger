@@ -19,6 +19,7 @@ function invalidateLedger(qc: QueryClient, id?: string) {
   if (id) {
     void qc.invalidateQueries({ queryKey: ["loan", id] });
     void qc.invalidateQueries({ queryKey: ["receipt", id] });
+    void qc.invalidateQueries({ queryKey: ["payment-receipt"] });
   }
 }
 
@@ -96,6 +97,40 @@ export function useReceiptUri(id: string, hasReceipt: boolean) {
       const dest = new File(Paths.cache, `receipt-${id}-${Date.now()}.img`);
       const file = await File.downloadFileAsync(uri, dest, { headers, idempotent: true });
       return file.uri;
+    },
+  });
+}
+
+export function usePaymentReceiptUri(loanId: string, paymentId: string, hasReceipt: boolean) {
+  return useQuery({
+    queryKey: ["payment-receipt", paymentId],
+    enabled: hasReceipt,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { uri, headers } = api().paymentReceiptSource(loanId, paymentId);
+      const dest = new File(Paths.cache, `payment-${paymentId}-${Date.now()}.img`);
+      const file = await File.downloadFileAsync(uri, dest, { headers, idempotent: true });
+      return file.uri;
+    },
+  });
+}
+
+export function useUploadPaymentReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { loanId: string; paymentId: string; image: PickedImage }) =>
+      api().uploadPaymentReceipt(v.loanId, v.paymentId, v.image),
+    onSuccess: (_l, v) => invalidateLedger(qc, v.loanId),
+  });
+}
+
+export function useRemovePaymentReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { loanId: string; paymentId: string }) => api().removePaymentReceipt(v.loanId, v.paymentId),
+    onSuccess: (_l, v) => {
+      qc.removeQueries({ queryKey: ["payment-receipt", v.paymentId] });
+      invalidateLedger(qc, v.loanId);
     },
   });
 }

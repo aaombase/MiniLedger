@@ -22,6 +22,9 @@ export interface ApiClient {
   getSummary(): Promise<Summary>;
   uploadReceipt(id: string, image: PickedImage): Promise<Loan>;
   removeReceipt(id: string): Promise<LoanDetail>;
+  uploadPaymentReceipt(loanId: string, paymentId: string, image: PickedImage): Promise<LoanDetail>;
+  removePaymentReceipt(loanId: string, paymentId: string): Promise<LoanDetail>;
+  paymentReceiptSource(loanId: string, paymentId: string): ImageSourceSpec;
   receiptSource(id: string): ImageSourceSpec;
 }
 
@@ -36,7 +39,7 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
 
 /** Any 401 from an authenticated call means the session is gone: let the auth layer sign the user out. */
 function withAuthGuard(inner: ApiClient): ApiClient {
-  const skip = new Set(["requestOtp", "verifyOtp", "logout", "setToken", "receiptSource"]);
+  const skip = new Set(["requestOtp", "verifyOtp", "logout", "setToken", "receiptSource", "paymentReceiptSource"]);
   return new Proxy(inner, {
     get(target, prop: string) {
       const v = (target as unknown as Record<string, unknown>)[prop];

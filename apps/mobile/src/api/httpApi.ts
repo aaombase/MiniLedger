@@ -1,9 +1,12 @@
 import { File as FsFile } from "expo-file-system";
 import type { ApiClient } from "./client";
 import { ApiError } from "./ApiError";
-import type { CreateLoanInput, Loan, LoanFilter, LoansResponse, PickedImage, RecordPaymentInput, UpdateLoanInput } from "@/shared/types";
+import type { CreateLoanInput, Loan, LoanDetail, LoanFilter, LoansResponse, PickedImage, RecordPaymentInput, UpdateLoanInput } from "@/shared/types";
 
 const TIMEOUT_MS = 10_000;
+
+const paymentReceiptPath = (loanId: string, paymentId: string) =>
+  `/v1/loans/${encodeURIComponent(loanId)}/payments/${encodeURIComponent(paymentId)}/receipt`;
 
 export function createHttpApi(baseUrl: string): ApiClient {
   let token: string | null = null;
@@ -59,6 +62,16 @@ export function createHttpApi(baseUrl: string): ApiClient {
       form.append("file", new FsFile(image.uri) as unknown as Blob, image.name);
       return call<Loan>("PUT", `/v1/loans/${encodeURIComponent(id)}/receipt`, form, true);
     },
+    async uploadPaymentReceipt(loanId: string, paymentId: string, image: PickedImage) {
+      const form = new FormData();
+      form.append("file", new FsFile(image.uri) as unknown as Blob, image.name);
+      return call<LoanDetail>("PUT", paymentReceiptPath(loanId, paymentId), form, true);
+    },
+    removePaymentReceipt: (loanId, paymentId) => call("DELETE", paymentReceiptPath(loanId, paymentId)),
+    paymentReceiptSource: (loanId, paymentId) => ({
+      uri: `${baseUrl}${paymentReceiptPath(loanId, paymentId)}`,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }),
     removeReceipt: (id) => call("DELETE", `/v1/loans/${encodeURIComponent(id)}/receipt`),
     receiptSource: (id) => ({
       uri: `${baseUrl}/v1/loans/${encodeURIComponent(id)}/receipt`,
