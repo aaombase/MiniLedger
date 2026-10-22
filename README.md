@@ -211,7 +211,7 @@ A suggested walkthrough that covers every feature:
 | 7 | Loan detail | *Record payment* → enter part of the amount | Progress bar moves; payment appears in history; loan stays open |
 | 8 | Record payment | Enter more than is owed | Error: "… only owes ₹X" |
 | 9 | Loan detail | *Settle in full* | Records the remainder; big **PAID IN FULL** stamp |
-| 10 | Add loan, Loan detail | Attach a receipt photo while adding a loan, or later under *Receipt* (camera or gallery) | Photo shows; tap to view full screen; *Replace* / *Remove* work |
+| 10 | Add loan, Loan detail | Attach a receipt photo while adding a loan, or later via *Add receipt* on the "Lent" line of the loan's *History* | Thumbnail shows; tap to view full screen; *Replace* / *Remove* work |
 | 10b | Record payment, Loan detail | Add *Proof of payment* when recording a payment, or tap *Add proof* next to a payment in the history | Thumbnail beside that payment; tap to view, replace or remove |
 | 11 | Loan detail | *Remind* | Share sheet opens with a ready-made message (WhatsApp, SMS…) |
 | 12 | Loan detail | ⋯ menu → *Edit details* / *Delete loan* | Name, due date and note editable; delete asks for confirmation |

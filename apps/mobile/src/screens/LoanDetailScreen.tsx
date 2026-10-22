@@ -1,25 +1,23 @@
 import { useState } from "react";
-import { BellRing, Camera, CheckCheck, ChevronLeft, HandCoins, MoreHorizontal, SearchX, X } from "lucide-react-native";
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BellRing, CheckCheck, ChevronLeft, HandCoins, MoreHorizontal, SearchX } from "lucide-react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, fonts, layout, radii, spacing, typography } from "@/theme/tokens";
-import { useDeleteLoan, useLoan, useReceiptUri, useRemoveReceipt, useRepayLoan, useUploadReceipt } from "@/api/queries";
+import { useDeleteLoan, useLoan, useRepayLoan } from "@/api/queries";
 import { isApiError } from "@/api/ApiError";
-import { pickImage, type PickSource } from "@/platform/imagePicker";
 import { haptics } from "@/platform/haptics";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { IconButton } from "@/components/IconButton";
 import { Avatar } from "@/components/Avatar";
 import { Stamp } from "@/components/Stamp";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Banner } from "@/components/Banner";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { SectionTitle } from "@/components/SectionTitle";
-import { PaymentProof } from "@/components/PaymentProof";
+import { LoanProof, PaymentProof } from "@/components/PaymentProof";
 import { useToast } from "@/components/ToastProvider";
 import { sendReminder } from "@/lib/remind";
 import { formatINR } from "@/shared/money";
@@ -31,17 +29,10 @@ export function LoanDetailScreen() {
   const toast = useToast();
   const loanQ = useLoan(id);
   const repay = useRepayLoan();
-  const upload = useUploadReceipt();
   const del = useDeleteLoan();
-  const removeReceipt = useRemoveReceipt();
-  const [confirmRemovePhoto, setConfirmRemovePhoto] = useState(false);
-  const receiptQ = useReceiptUri(id, !!loanQ.data?.hasReceipt);
   const [confirmSettle, setConfirmSettle] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [viewer, setViewer] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace("/"));
   const loan = loanQ.data;
@@ -107,28 +98,10 @@ export function LoanDetailScreen() {
     }
   }
 
-  async function choose(source: PickSource) {
-    setUploadError(null);
-    setPickerOpen(false);
-    try {
-      const img = await pickImage(source);
-      if (!img) return;
-      await upload.mutateAsync({ id: loan!.id, image: img });
-      toast.show({ message: "Receipt saved", tone: "success" });
-    } catch (e) {
-      if (e instanceof Error && e.name === "CameraPermissionError") setUploadError("Camera access is off. Allow it for Expo Go in your phone's settings, or choose from your library.");
-      else if (isApiError(e) && e.status === 413) setUploadError("That photo is too large (max 5 MB).");
-      else if (isApiError(e) && e.status === 415) setUploadError("Only JPG, PNG or WebP images are supported.");
-      else if (isApiError(e) && e.status === 0) setUploadError("Couldn't reach MiniLedger. Check your connection and try again.");
-      else setUploadError("Couldn't upload the photo. Try again.");
-    }
-  }
-
   async function remind() {
     try { await sendReminder([loan!]); } catch { toast.show({ message: "Couldn't open the share sheet", tone: "error" }); }
   }
 
-  const receipt = receiptQ.data ? { uri: receiptQ.data } : null;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -172,66 +145,34 @@ export function LoanDetailScreen() {
           </View>
         ) : null}
 
-        <SectionTitle title="Payments" />
+        <SectionTitle title="History" />
         <View style={styles.card}>
-          {loan.payments.length === 0 ? (
-            <Text style={styles.muted}>No payments yet. When {loan.friendName.split(" ")[0]} pays you back, even partly, record it here.</Text>
-          ) : (
-            loan.payments.map((p, i) => (
-              <View key={p.id} style={styles.payment}>
-                <View style={styles.rail}>
-                  <View style={[styles.dot, i === 0 && repaid ? { backgroundColor: colors.repaid } : null]} />
-                  {i < loan.payments.length - 1 ? <View style={styles.line} /> : null}
-                </View>
-                <View style={styles.paymentBody}>
-                  <Text style={[styles.paymentAmount, typography.money]}>+{formatINR(p.amountMinor)}</Text>
-                  <Text style={styles.caption}>{formatShortDate(p.paidOn)}{p.note ? ` · ${p.note}` : ""}{i === 0 && repaid ? " · settled" : ""}</Text>
-                </View>
-                <PaymentProof loanId={loan.id} payment={p} />
+          {loan.payments.map((p, i) => (
+            <View key={p.id} style={styles.payment}>
+              <View style={styles.rail}>
+                <View style={[styles.dot, i === 0 && repaid ? { backgroundColor: colors.repaid } : null]} />
+                <View style={styles.line} />
               </View>
-            ))
-          )}
-        </View>
-
-        <View style={styles.receiptHead}>
-          <SectionTitle title="Receipt" />
-          {loan.hasReceipt && !upload.isPending ? (
-            <View style={styles.receiptActions}>
-              <Pressable onPress={() => setPickerOpen(true)} hitSlop={8} accessibilityLabel="Replace receipt">
-                <Text style={styles.linkText}>Replace</Text>
-              </Pressable>
-              <Pressable onPress={() => setConfirmRemovePhoto(true)} hitSlop={8} accessibilityLabel="Remove receipt">
-                <Text style={[styles.linkText, { color: colors.danger }]}>Remove</Text>
-              </Pressable>
+              <View style={styles.paymentBody}>
+                <Text style={[styles.paymentAmount, typography.money]}>+{formatINR(p.amountMinor)}</Text>
+                <Text style={styles.caption}>{formatShortDate(p.paidOn)}{p.note ? ` · ${p.note}` : ""}{i === 0 && repaid ? " · settled" : ""}</Text>
+              </View>
+              <PaymentProof loanId={loan.id} payment={p} />
             </View>
+          ))}
+          {loan.payments.length === 0 ? (
+            <Text style={[styles.muted, { marginBottom: spacing.md }]}>No payments yet. When {loan.friendName.split(" ")[0]} pays you back, even partly, record it here.</Text>
           ) : null}
-        </View>
-        <View style={styles.receiptBody}>
-          {upload.isPending ? (
-            <View style={styles.uploading}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.caption}>Uploading…</Text>
+          <View style={styles.payment}>
+            <View style={styles.rail}>
+              <View style={[styles.dot, { backgroundColor: colors.inkMuted }]} />
             </View>
-          ) : loan.hasReceipt && !receipt ? (
-            <View style={styles.uploading}>
-              {receiptQ.isError ? (
-                <Text style={styles.caption} onPress={() => void receiptQ.refetch()}>Couldn't load the photo. Tap to retry.</Text>
-              ) : (
-                <ActivityIndicator size="small" color={colors.primary} />
-              )}
+            <View style={[styles.paymentBody, { paddingBottom: 0 }]}>
+              <Text style={[styles.paymentAmount, typography.money, { color: colors.ink }]}>Lent {formatINR(loan.amountMinor)}</Text>
+              <Text style={styles.caption}>{formatShortDate(isoToLocalDate(loan.createdAt))}{loan.note ? ` · ${loan.note}` : ""}</Text>
             </View>
-          ) : loan.hasReceipt && receipt ? (
-            <Pressable onPress={() => setViewer(true)} accessibilityLabel="View receipt" style={styles.thumbWrap}>
-              <Image source={receipt} style={styles.thumb} resizeMode="cover" accessibilityLabel="Receipt photo" />
-            </Pressable>
-          ) : (
-            <Pressable onPress={() => setPickerOpen(true)} accessibilityLabel="Add a receipt photo" style={({ pressed }) => [styles.dropzone, pressed ? { backgroundColor: colors.surfaceMuted } : null]}>
-              <Camera size={24} color={colors.inkMuted} />
-              <Text style={styles.dropTitle}>Attach the bill or UPI screenshot of the money you sent</Text>
-              <Text style={styles.caption}>JPG, PNG or WebP · up to 5 MB</Text>
-            </Pressable>
-          )}
-          {uploadError ? <Banner tone="danger" message={uploadError} /> : null}
+            <LoanProof loanId={loan.id} hasReceipt={loan.hasReceipt} />
+          </View>
         </View>
       </ScrollView>
 
@@ -265,43 +206,6 @@ export function LoanDetailScreen() {
           { title: "Keep it", variant: "secondary", onPress: () => setConfirmDelete(false) },
         ]}
       />
-      <ConfirmSheet
-        visible={confirmRemovePhoto}
-        title="Remove this receipt?"
-        body="The photo is deleted. You can attach a new one any time."
-        onClose={() => { if (!removeReceipt.isPending) setConfirmRemovePhoto(false); }}
-        actions={[
-          {
-            title: "Remove photo",
-            variant: "danger",
-            loading: removeReceipt.isPending,
-            onPress: () =>
-              void removeReceipt.mutateAsync(loan.id).then(
-                () => { setConfirmRemovePhoto(false); setUploadError(null); toast.show({ message: "Receipt removed", tone: "info" }); },
-                () => { setConfirmRemovePhoto(false); toast.show({ message: "Couldn't remove the receipt. Try again.", tone: "error" }); },
-              ),
-          },
-          { title: "Keep it", variant: "secondary", onPress: () => setConfirmRemovePhoto(false) },
-        ]}
-      />
-      <ConfirmSheet
-        visible={pickerOpen}
-        title="Add a receipt"
-        onClose={() => setPickerOpen(false)}
-        actions={[
-          { title: "Take photo", variant: "secondary", onPress: () => void choose("camera") },
-          { title: "Choose from library", variant: "secondary", onPress: () => void choose("library") },
-          { title: "Cancel", variant: "ghost", onPress: () => setPickerOpen(false) },
-        ]}
-      />
-      <Modal visible={viewer} animationType="fade" onRequestClose={() => setViewer(false)}>
-        <View style={styles.viewer}>
-          {receipt ? <Image source={receipt} style={styles.viewerImg} resizeMode="contain" accessibilityLabel="Receipt photo" /> : null}
-          <View style={styles.viewerClose}>
-            <IconButton icon={X} onPress={() => setViewer(false)} accessibilityLabel="Close receipt" color={colors.onPrimary} />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -353,16 +257,4 @@ const styles = StyleSheet.create({
   line: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 2 },
   paymentBody: { flex: 1, paddingBottom: spacing.md, gap: 1 },
   paymentAmount: { fontFamily: fonts.display, fontSize: 17, color: colors.primary },
-  receiptBody: { gap: spacing.md },
-  receiptHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
-  receiptActions: { flexDirection: "row", gap: spacing.lg, paddingBottom: 4 },
-  linkText: { ...typography.label, fontFamily: fonts.bodyBold, color: colors.primary },
-  thumbWrap: { borderRadius: radii.lg, overflow: "hidden" },
-  thumb: { width: "100%", height: 180, borderRadius: radii.lg },
-  dropzone: { height: 120, borderRadius: radii.lg, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center", gap: spacing.xs, backgroundColor: colors.surface },
-  dropTitle: { ...typography.label, color: colors.ink },
-  uploading: { height: 160, borderRadius: radii.lg, backgroundColor: colors.surfaceMuted, alignItems: "center", justifyContent: "center", gap: spacing.sm },
-  viewer: { flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" },
-  viewerImg: { width: "100%", height: "100%" },
-  viewerClose: { position: "absolute", top: 47 + spacing.sm, right: spacing.sm },
 });
