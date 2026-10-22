@@ -95,11 +95,23 @@ export const payments = pgTable(
     amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
     paidOn: date('paid_on', { mode: 'string' }).notNull(),
     note: text('note'),
+    // Optional proof of this payment (e.g. a UPI screenshot). Same rules as the loan receipt.
+    receiptKey: text('receipt_key'),
+    receiptMime: text('receipt_mime'),
+    receiptBytes: integer('receipt_bytes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check('payments_amount_minor_check', sql`${t.amountMinor} BETWEEN 1 AND 100000000`),
     check('payments_note_check', sql`${t.note} IS NULL OR char_length(${t.note}) <= 200`),
+    check(
+      'payments_receipt_mime_check',
+      sql`${t.receiptMime} IS NULL OR ${t.receiptMime} IN ('image/jpeg','image/png','image/webp')`,
+    ),
+    check(
+      'payments_receipt_bytes_check',
+      sql`${t.receiptBytes} IS NULL OR ${t.receiptBytes} BETWEEN 1 AND 5242880`,
+    ),
     index('payments_loan_created_idx').on(t.loanId, t.createdAt.desc()),
   ],
 );

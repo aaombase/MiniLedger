@@ -99,6 +99,7 @@ export function createLoansService({ db, clock, storage }: { db: Db; clock: Cloc
     amountMinor: p.amountMinor,
     paidOn: p.paidOn,
     note: p.note,
+    hasReceipt: p.receiptKey !== null,
     createdAt: p.createdAt.toISOString(),
   });
 
@@ -166,13 +167,19 @@ export function createLoansService({ db, clock, storage }: { db: Db; clock: Cloc
 
   async function remove(user: AuthUser, id: string): Promise<void> {
     if (!UUID.test(id)) throw errors.loanNotFound();
+    const paymentFiles = await db
+      .select({ key: payments.receiptKey })
+      .from(payments)
+      .innerJoin(loans, eq(loans.id, payments.loanId))
+      .where(and(eq(payments.loanId, id), eq(loans.userId, user.id), isNotNull(payments.receiptKey)));
     const [deleted] = await db
       .delete(loans)
       .where(and(eq(loans.id, id), eq(loans.userId, user.id)))
       .returning({ receiptKey: loans.receiptKey });
     if (!deleted) throw errors.loanNotFound();
-    // The row is gone either way; a leftover file is harmless, so a storage hiccup must not fail the request.
-    if (deleted.receiptKey && storage) await storage.remove(deleted.receiptKey).catch(() => {});
+    // The rows are gone either way; a leftover file is harmless, so a storage hiccup must not fail the request.
+    const keys = [deleted.receiptKey, ...paymentFiles.map((f) => f.key)].filter((k): k is string => k !== null);
+    if (storage) await Promise.all(keys.map((key) => storage.remove(key).catch(() => {})));
   }
 
   /**

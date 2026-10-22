@@ -29,6 +29,7 @@ export interface Payment {
   amountMinor: number;
   paidOn: string; // 'YYYY-MM-DD'
   note: string | null;
+  hasReceipt: boolean;
   createdAt: string; // ISO timestamp
 }
 

@@ -60,6 +60,7 @@ describe('POST /v1/loans/:id/payments', () => {
         amountMinor: 40000,
         paidOn: TODAY,
         note: 'GPay',
+        hasReceipt: false,
         createdAt: ctx.clock.now().toISOString(),
       },
     ]);
