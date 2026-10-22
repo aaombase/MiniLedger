@@ -22,7 +22,8 @@
 **Beyond the brief**
 - **Partial payments:** record any amount (back-dated if needed); a loan is settled once its payments add up to the full amount. Overdue counts only what's still unpaid.
 - **Payment history** on every loan
-- **Receipt photos:** attach, view, replace or remove a bill / UPI screenshot (camera or gallery)
+- **Receipt photos:** attach a bill / UPI screenshot to a loan, **while adding it or later**; view, replace or remove it (camera or gallery)
+- **Proof of each payment:** every repayment can carry its own photo (e.g. the UPI screenshot of that instalment), added while recording the payment or afterwards
 - **Reminders:** one tap opens WhatsApp/SMS (system share sheet) with a polite, pre-written message
 - **People:** balances grouped per friend (someone can borrow many times), one reminder for all their open loans, "Lend again"
 - **Insights:** % collected, on-time repayment rate, average days to settle, 6-month lent vs collected chart, who owes the most, how late overdue loans are
@@ -210,7 +211,8 @@ A suggested walkthrough that covers every feature:
 | 7 | Loan detail | *Record payment* → enter part of the amount | Progress bar moves; payment appears in history; loan stays open |
 | 8 | Record payment | Enter more than is owed | Error: "… only owes ₹X" |
 | 9 | Loan detail | *Settle in full* | Records the remainder; big **PAID IN FULL** stamp |
-| 10 | Loan detail | Receipt → *Attach* (camera or gallery) | Photo shows; tap to view full screen; *Replace* / *Remove* work |
+| 10 | Add loan, Loan detail | Attach a receipt photo while adding a loan, or later under *Receipt* (camera or gallery) | Photo shows; tap to view full screen; *Replace* / *Remove* work |
+| 10b | Record payment, Loan detail | Add *Proof of payment* when recording a payment, or tap *Add proof* next to a payment in the history | Thumbnail beside that payment; tap to view, replace or remove |
 | 11 | Loan detail | *Remind* | Share sheet opens with a ready-made message (WhatsApp, SMS…) |
 | 12 | Loan detail | ⋯ menu → *Edit details* / *Delete loan* | Name, due date and note editable; delete asks for confirmation |
 | 13 | People tab | Tap a friend with 2 loans (e.g. Rohan Mehta) | Their total owed, both loans, *Remind* (one message for all) and *Lend again* |
@@ -265,7 +267,8 @@ curl -X PUT localhost:4000/v1/loans/<id>/receipt -H "Authorization: Bearer $TOKE
 | DELETE | `/v1/loans/:id` | Delete loan, its payments and receipt |
 | POST | `/v1/loans/:id/payments` | `{ amountMinor, paidOn?, note? }`: partial payment |
 | POST | `/v1/loans/:id/repay` | Settle whatever is still owed |
-| PUT / GET / DELETE | `/v1/loans/:id/receipt` | Upload (multipart field `file`, ≤5 MB, JPEG/PNG/WebP) / fetch / remove receipt |
+| PUT / GET / DELETE | `/v1/loans/:id/receipt` | Upload (multipart field `file`, ≤5 MB, JPEG/PNG/WebP) / fetch / remove the loan's receipt |
+| PUT / GET / DELETE | `/v1/loans/:id/payments/:paymentId/receipt` | Same, for the proof of one payment |
 | GET | `/v1/summary` | Lent, repaid, outstanding, overdue, plus counts |
 | GET | `/v1/activity?limit=` | Loans and payments, newest first |
 
@@ -278,12 +281,12 @@ Errors always look like `{ "error": { "code": "LOAN_NOT_FOUND", "message": "…"
 Needs the test database from step 3 (`TEST_DATABASE_URL` in `apps/api/.env`). The API itself does not need to be running.
 
 ```bash
-npm test            # 249 tests: shared rules + API integration tests against real Postgres
+npm test            # 260 tests: shared rules + API integration tests against real Postgres
 npm run typecheck   # TypeScript checks for shared, api and mobile
 ```
 
 - **102 shared tests:** money parsing and formatting, dates and time zones, loan status, phone numbers, validation
-- **147 API tests:** login and OTP limits, loans, partial payments, concurrency (simultaneous payments can't overpay), summary maths, receipts, seed
+- **158 API tests:** login and OTP limits, loans, partial payments, concurrency (simultaneous payments can't overpay), summary maths, receipts (loan and payment photos), seed
 
 Run one part only with `npm run test:shared` or `npm run test:api`.
 
@@ -325,5 +328,5 @@ Run one part only with `npm run test:shared` or `npm run test:api`.
 - Receipts are stored on the API server's disk (`apps/api/uploads`); production would implement `ReceiptStorage` over object storage.
 - People are matched by name: a typo creates a separate person, and two different friends with exactly the same name are merged.
 - Single currency (INR). A loan's amount can't be edited once created (delete and re-add instead), so payment history always adds up.
-- The mobile app has no automated UI tests; the 249 tests cover the backend and shared rules.
+- The mobile app has no automated UI tests; the 260 tests cover the backend and shared rules.
 - `npm audit` reports moderate advisories in dev-only tooling (drizzle-kit's bundled esbuild); none ship in the app.
