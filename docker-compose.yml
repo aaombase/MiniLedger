@@ -1,5 +1,6 @@
 # Optional: Postgres for people who do not have a local install.
-# Creates the dev database; the test database is created by `npm run db:setup-test`.
+# Creates the dev database. For the test database run:
+#   docker compose exec db createdb -U miniledger miniledger_test
 services:
   db:
     image: postgres:16-alpine

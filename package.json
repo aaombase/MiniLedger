@@ -18,7 +18,8 @@
     "test": "npm run test -w @miniledger/shared && npm run test -w @miniledger/api",
     "test:shared": "npm run test -w @miniledger/shared",
     "test:api": "npm run test -w @miniledger/api",
-    "typecheck": "npm run typecheck -w @miniledger/shared && npm run typecheck -w @miniledger/api"
+    "typecheck": "npm run typecheck -w @miniledger/shared && npm run typecheck -w @miniledger/api && npm run typecheck -w @miniledger/mobile",
+    "dev:mobile": "npm run start -w @miniledger/mobile -- --lan"
   },
   "devDependencies": {
     "typescript": "5.9.3"
